@@ -1,6 +1,8 @@
 import pygame
 import sys
 
+
+
 pygame.init()
 current_page='Start'
 #input entry
@@ -52,7 +54,9 @@ def Start_Menue():
     button_rect = pygame.Rect(175,450, 300, 60)
     pygame.draw.rect(screen, BOARD_COLOR, button_rect)
     font = pygame.font.SysFont("Arial", 32)
-    text = font.render("Click To Start", True, (255, 255, 255))
+    mouse_over = button_rect.collidepoint(pygame.mouse.get_pos())
+    color = WHITE if mouse_over else (70, 130, 180)
+    text = font.render("Click To Start", True, color)
     screen.blit(text, (button_rect.x + 50, button_rect.y + 10))
     #-------LEVEL CHOICE-------
     font = pygame.font.SysFont("Arial", 32)
@@ -97,8 +101,17 @@ def Start_Menue():
     pygame.draw.rect(screen, color, box, 2)
     screen.blit(font.render(text_en, True, (255,255,255)), (box.x+5, box.y+5))
 
+    #------Default Button
+    df_box = pygame.Rect(500, 300, 50, 40)
+    mouse_over = df_box.collidepoint(pygame.mouse.get_pos())
 
-    return {'button_rect':button_rect,'box':box}
+    color = WHITE if mouse_over else (70, 130, 180)
+    pygame.draw.rect(screen, color, df_box, 2)
+    screen.blit(font.render(text_en, True, (255,255,255)), (box.x+5, box.y+5))
+    text = font.render(" 15 ", True, color)
+    screen.blit(text, (df_box.x + 3, df_box.y + 3))
+
+    return {'button_rect':button_rect,'box':box,'df_box':df_box}
 def draw_piece(row, col, color):
 
     x = CELL_SIZE//2 + col * CELL_SIZE
@@ -107,7 +120,7 @@ def draw_piece(row, col, color):
 def get_cell_from_pos(x_p,y_p):
     col = round((x_p- CELL_SIZE // 2) / CELL_SIZE)
     row = round((y_p - CELL_SIZE // 2) / CELL_SIZE)
-    draw_piece(row, col, WHITE)
+    draw_piece(row, col, BLACK)
     if 0 <= col < COLS and 0 <= row < ROWS:
         return row, col
     else:
@@ -126,6 +139,11 @@ while True:
                 if button['button_rect'].collidepoint(event.pos):
                     current_page = "Game"
                     draw_grid()
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if button['df_box'].collidepoint(event.pos):
+                ROWS = COLS =15
+                text_en='15'
+
         if event.type == pygame.MOUSEBUTTONDOWN:
             active = button['box'].collidepoint(event.pos)
         if event.type == pygame.KEYDOWN and active:
