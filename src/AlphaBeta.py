@@ -6,20 +6,7 @@ class AlphaBeta:
 
     @staticmethod
     def alphabeta(board, depth: int, alpha: float, beta: float, maximizingPlayer: bool, heuristic_func=None):
-        """
-        Alpha-Beta Pruning implementation for Gomoku
 
-        Parameters:
-        - board: current game state
-        - depth: search depth
-        - alpha: best value that the maximizing player can guarantee
-        - beta: best value that the minimizing player can guarantee
-        - maximizingPlayer: True if it's AI's turn (maximizing), False if opponent's turn (minimizing)
-        - heuristic_func: evaluation function to use
-
-        Returns:
-        - tuple: (evaluation_score, best_move)
-        """
         # Default to pattern heuristic if none provided
         if heuristic_func is None:
             heuristic_func = evaluate
@@ -82,7 +69,7 @@ class AlphaBeta:
 
     @staticmethod
     def is_terminal(board):
-        """Check if game is over (win or draw)"""
+        
         # Check if game is over
         lines = get_lines(board)
         for line in lines:
@@ -98,7 +85,7 @@ class AlphaBeta:
 
     @staticmethod
     def get_possible_moves(board):
-        """Get all empty positions"""
+        
         moves = []
         for x in range(len(board)):
             for y in range(len(board[0])):
@@ -108,7 +95,7 @@ class AlphaBeta:
 
     @staticmethod
     def make_move(board, move, player):
-        """Create new board with move made"""
+        
         import copy
         new_board = copy.deepcopy(board)
         x, y = move[0], move[1]
@@ -117,17 +104,7 @@ class AlphaBeta:
 
     @staticmethod
     def get_best_move(board, depth: int, heuristic_func=None):
-        """
-        Public method to get the best move using Alpha-Beta pruning
 
-        Parameters:
-        - board: current game state
-        - depth: search depth
-        - heuristic_func: evaluation function to use
-
-        Returns:
-        - tuple: best move coordinates (x, y)
-        """
         # Initialize alpha and beta with worst-case values
         alpha = float('-inf')
         beta = float('inf')
@@ -135,4 +112,3 @@ class AlphaBeta:
         # Start the search as maximizing player (AI is "X")
         score, best_move = AlphaBeta.alphabeta(board, depth, alpha, beta, True, heuristic_func)
         return best_move
-# Alpha-Beta Pruning logic
