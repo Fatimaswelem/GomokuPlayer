@@ -1,64 +1,64 @@
 # Two different evaluation functions
-
 # GOMOKU HEURISTIC EVALUATION FUNCTION_1
-
+# Constants must match Board.py
 AI = "X"
 OP = "O"
-EMPTY = "_"
+EMPTY = "."  # CHANGED: Was "_"
 
 PATTERN_SCORES = {
+    # --- AI (Maximizing) Patterns ---
+    "XXXXX": 100000000,      # Win
+    ".XXXX.": 100000,        # Open four (Guaranteed win next turn)
+    "XX.XX": 10000,          # Split four
+    "X.XXX": 10000,
+    "XXX.X": 10000,
+    "OXXXX.": 10000,         # Closed four (Threat)
+    ".XXXXO": 10000,
+    ".XXX.": 5000,           # Open three
+    "OXXX.": 500,            # Closed three
+    ".XXXO": 500,
+    ".XX.X.": 200,           # Split three
+    ".X.XX.": 200,
+    ".XX.": 200,             # Open two
+    "OXX.": 50,              # Closed two
+    ".XXO": 50,
 
-    "XXXXX": 100000000,          
-    "_XXXX_": 100000,       # Open four
-    "XX_XX": 10000,
-    "X_XXX": 10000,
-    "XXX_X": 10000,        
-    "XX_XX": 10000,
-    "X_XXX": 10000,
-    "OXXXX_": 10000,        # Closed four
-    "_XXXXO": 10000,
-    "_XXX_": 5000,          # Open three
-    "OXXX_": 500,           # Closed three
-    "_XXXO": 500,
-    "_XX_X_": 200,
-    "_X_XX_": 200,
-    "_XX_": 200,            # Open two
-    "OXX_": 50,             # Closed two
-    "_XXO": 50,
-
-
-    "OOOOO": -100000000,     # lose
-    "_OOOO_": -100000,       # Open four
-    "OO_OO": -10000,
-    "O_OOO": -10000,
-    "OOO_O": -10000,        
-    "XOOOO_": -10000,        # Closed four
-    "_OOOOX": -10000,
-    "_OOO_": -5000,          # Open three
-    "XOOO_": -500,           # Closed three
-    "_OOOX": -500,
-    "_OO_O_": -200,
-    "_O_OO_": -200,
-    "_OO_": -200,            # Open two
-    "XOO_": -50,             # Closed two
-    "_OOX": -50,
-
+    # --- Opponent (Minimizing) Patterns ---
+    # We punish these heavily so Minimax avoids them
+    "OOOOO": -100000000,     # Lose
+    ".OOOO.": -100000,       # Opponent Open four
+    "OO.OO": -10000,
+    "O.OOO": -10000,
+    "OOO.O": -10000,
+    "XOOOO.": -10000,        # Opponent Closed four
+    ".OOOOX": -10000,
+    ".OOO.": -5000,          # Opponent Open three
+    "XOOO.": -500,           # Opponent Closed three
+    ".OOOX": -500,
+    ".OO.O.": -200,
+    ".O.OO.": -200,
+    ".OO.": -200,            # Opponent Open two
+    "XOO.": -50,             # Opponent Closed two
+    ".OOX": -50,
 }
 
 # Extract rows, columns, diagonals as strings
-
 def get_lines(board):
+    # Important: 'board' here must be the 2D list, not the Board object
     n = len(board)
     lines = []
 
+    # Rows
     for row in board:
         lines.append("".join(row))
 
+    # Columns
     for col in range(n):
         col_str = "".join(board[row][col] for row in range(n))
         lines.append(col_str)
 
     # --- Diagonals ---
+    # Top-left to bottom-right
     for r in range(n):
         x, y = r, 0
         diag = []
@@ -79,6 +79,7 @@ def get_lines(board):
         if len(diag) >= 5:
             lines.append("".join(diag))
 
+    # Top-right to bottom-left
     for r in range(n):
         x, y = r, n - 1
         diag = []
@@ -102,34 +103,29 @@ def get_lines(board):
     return lines
 
 
-#valuate Patterns in a Single Line
-
+# Evaluate Patterns in a Single Line
 def evaluate_line(line, player):
     score = 0
     opp = OP if player == AI else AI
 
-    # AI patterns
+    # To simplify pattern matching, we can replace the player's char with 'X'
+    # and opponent with 'O' just for the lookup, or duplicte dictionary.
+    # The current approach iterates keys and checks based on player.
+    
     for pattern, value in PATTERN_SCORES.items():
-        if player == "X":
+        if player == AI: # If we are 'X'
             if pattern in line:
                 score += value
-        else:
-            pattern_player = pattern.replace("X", player)
-            if pattern_player in line:
+        else: # If we are 'O', we need to flip the pattern logic
+            # Flip X/O in the pattern key to match the current 'O' perspective
+            flipped_pattern = pattern.replace("X", "TEMP").replace("O", "X").replace("TEMP", "O")
+            if flipped_pattern in line:
                 score += value
-
-    # Opponent patterns (negative score)
-    for pattern, value in PATTERN_SCORES.items():
-        opp_pattern = pattern.replace("X", opp)
-        if opp_pattern in line:
-            score -= value * 1
 
     return score
 
 
-
-# Main Evaluation Function
-
+# Main Evaluation Function (Heuristic 1)
 def evaluate(board, player=AI):
     score = 0
     lines = get_lines(board)
@@ -137,16 +133,17 @@ def evaluate(board, player=AI):
     for line in lines:
         score += evaluate_line(line, player)
 
-        # win detection
+        # Immediate Win/Loss Detection override
+        # (This helps Minimax see terminal states clearly)
         if "XXXXX" in line:
-            if player == AI:
-                return 1000000000
-            else:
-                return -1000000000
+            return 1000000000 if player == "X" else -1000000000
+        if "OOOOO" in line:
+            return 1000000000 if player == "O" else -1000000000
 
     return score
 
-# # GOMOKU  DISTANCE-TO-CENTER HEURISTIC EVALUATION FUNCTION_2
+
+# GOMOKU DISTANCE-TO-CENTER HEURISTIC EVALUATION FUNCTION_2
 
 def distance_score(r, c, n):
     center = (n - 1) / 2.0
@@ -172,21 +169,23 @@ def evaluate_distance_to_center(board, player=AI):
                 score += distance_score(r, c, n)
 
             elif cell == opponent:
+                # We subtract score for opponent's good positions
                 score -= distance_score(r, c, n) * 1.2  
 
     return score
 
-# Example usage:
 # --- Example Usage (Assuming an 8x8 Board) ---
 board = [
-    ['_', '_', '_', '_', '_', '_', '_', '_'],
-    ['_', 'O', '_', '_', '_', '_', '_', '_'],
-    ['_', '_', 'O', '_', '_', '_', '_', '_'],
-    ['_', 'X', '_', 'O', '_', '_', '_', '_'],
-    ['_', '_', 'X', '_', '_', '_', '_', '_'],
-    ['_', '_', '_', '_', '_', '_', '_', '_'],
-    ['_', '_', '_', '_', 'X', '_', '_', '_'],
-    ['_', '_', '_', '_', '_', '_', '_', '_']
+    ['.', '.', '.', '.', '.', '.', '.', '.'],
+    ['.', 'O', '.', '.', '.', '.', '.', '.'],
+    ['.', '.', 'O', '.', '.', '.', '.', '.'],
+    ['.', 'X', '.', 'O', '.', '.', '.', '.'],
+    ['.', '.', 'X', '.', '.', '.', '.', '.'],
+    ['.', '.', '.', '.', '.', '.', '.', '.'],
+    ['.', '.', '.', '.', 'X', '.', '.', '.'],
+    ['.', '.', '.', '.', '.', '.', '.', '.']
 ]
-print(f"Pattern Score: {evaluate(board)}")
-print(f"Distance Score: {evaluate_distance_to_center(board)}")
+
+if __name__ == "__main__":
+    print(f"Pattern Score: {evaluate(board)}")
+    print(f"Distance Score: {evaluate_distance_to_center(board)}")
