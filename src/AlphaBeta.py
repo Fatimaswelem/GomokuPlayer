@@ -1,114 +1,105 @@
 # Alpha-Beta Pruning logic
-from HeuristicEvaluator import get_lines, evaluate, evaluate_distance_to_center
-
+import math
 
 class AlphaBeta:
+    def __init__(self, depth, heuristic_func=None):
+        self.depth = depth
+        self.heuristic_func = heuristic_func
+        self.ai_player = None 
+        # Statistics
+        self.nodes_explored = 0 # <--- ADD THIS LINE for stats tracking
+        self.pruning_count = 0 # <--- ADD THIS LINE for counting pruned nodes
 
-    @staticmethod
-    def alphabeta(board, depth: int, alpha: float, beta: float, maximizingPlayer: bool, heuristic_func=None):
-
-        # Default to pattern heuristic if none provided
-        if heuristic_func is None:
-            heuristic_func = evaluate
-
-        # Terminal state check
-        if depth == 0 or AlphaBeta.is_terminal(board):
-            return heuristic_func(board, "X"), None
-
-        if maximizingPlayer:
-            value = float('-inf')
-            possible_moves = AlphaBeta.get_possible_moves(board)
-            best_movement = possible_moves[0] if possible_moves else None
-
-            for move in possible_moves:
-                new_board = AlphaBeta.make_move(board, move, "X")
-
-                # Recursive call with alpha-beta pruning
-                tmp = AlphaBeta.alphabeta(new_board, depth - 1, alpha, beta, False, heuristic_func)[0]
-
-                # Update best value and move
-                if tmp > value:
-                    value = tmp
-                    best_movement = move
-
-                # Update alpha value
-                alpha = max(alpha, value)
-
-                # Alpha-beta pruning: if current value is already better than beta,
-                # we can stop exploring this branch
-                if value >= beta:
-                    break  # Beta cutoff
-
-            return value, best_movement
-
-        else:
-            value = float('inf')
-            possible_moves = AlphaBeta.get_possible_moves(board)
-            best_movement = possible_moves[0] if possible_moves else None
-
-            for move in possible_moves:
-                new_board = AlphaBeta.make_move(board, move, "O")
-
-                # Recursive call with alpha-beta pruning
-                tmp = AlphaBeta.alphabeta(new_board, depth - 1, alpha, beta, True, heuristic_func)[0]
-
-                # Update best value and move
-                if tmp < value:
-                    value = tmp
-                    best_movement = move
-
-                # Update beta value
-                beta = min(beta, value)
-
-                # Alpha-beta pruning: if current value is already worse than alpha,
-                # we can stop exploring this branch
-                if value <= alpha:
-                    break  # Alpha cutoff
-
-            return value, best_movement
-
-    @staticmethod
-    def is_terminal(board):
+    def find_best_move(self, board):
+        """
+        Starts the Alpha-Beta Pruning search.
+        """
+        self.ai_player = board.current_player
         
-        # Check if game is over
-        lines = get_lines(board)
-        for line in lines:
-            if "XXXXX" in line or "OOOOO" in line:
-                return True
-
-        # Check for draw
-        for row in board:
-            for cell in row:
-                if cell == '_':
-                    return False
-        return True
-
-    @staticmethod
-    def get_possible_moves(board):
+        # Reset counters
+        self.nodes_explored = 0
+        self.pruning_count = 0
         
-        moves = []
-        for x in range(len(board)):
-            for y in range(len(board[0])):
-                if board[x][y] == '_':
-                    moves.append((x, y))
-        return moves
-
-    @staticmethod
-    def make_move(board, move, player):
+        # Initialize Alpha (-infinity) and Beta (+infinity)
+        alpha = -math.inf
+        beta = math.inf
         
-        import copy
-        new_board = copy.deepcopy(board)
-        x, y = move[0], move[1]
-        new_board[x][y] = player
-        return new_board
-
-    @staticmethod
-    def get_best_move(board, depth: int, heuristic_func=None):
-
-        # Initialize alpha and beta with worst-case values
-        alpha = float('-inf')
-        beta = float('inf')
-
-        # Start the search as maximizing player (AI is "X")
-        score, best_move = AlphaBeta.alphabeta(board, depth, alpha, beta, True, heuristic_func)
+        # Start maximizing
+        _, best_move = self._alphabeta(board, self.depth, alpha, beta, True)
         return best_move
+
+    def _alphabeta(self, board, depth, alpha, beta, is_maximizing):
+        # Count this node
+        self.nodes_explored += 1 # <--- ADD THIS LINE for stats tracking
+        
+        # 1. Base Case: Terminal State or Max Depth
+        if depth == 0 or board.is_terminal():
+            return self._evaluate_state(board), None
+
+        possible_moves = board.get_possible_moves()
+        
+        if not possible_moves:
+            return 0, None
+
+        best_move = possible_moves[0] 
+
+        if is_maximizing:
+            max_eval = -math.inf
+            for r, c in possible_moves:
+                board.make_move(r, c)
+                
+                # Recurse
+                eval_score, _ = self._alphabeta(board, depth - 1, alpha, beta, False)
+                
+                board.undo_move(r, c)
+
+                if eval_score > max_eval:
+                    max_eval = eval_score
+                    best_move = (r, c)
+                
+                # Update Alpha
+                alpha = max(alpha, eval_score)
+                
+                # Prune (Cutoff)
+                if beta <= alpha:
+                    self.pruning_count += 1
+                    break 
+                    
+            return max_eval, best_move
+
+        else: # Minimizing step
+            min_eval = math.inf
+            for r, c in possible_moves:
+                board.make_move(r, c)
+                
+                eval_score, _ = self._alphabeta(board, depth - 1, alpha, beta, True)
+                
+                board.undo_move(r, c)
+
+                if eval_score < min_eval:
+                    min_eval = eval_score
+                    best_move = (r, c)
+                
+                # Update Beta
+                beta = min(beta, eval_score)
+                
+                # Prune (Cutoff)
+                if beta <= alpha:
+                    self.pruning_count += 1 # <--- ADD THIS LINE for counting pruned nodes
+                    break 
+                    
+            return min_eval, best_move
+
+    def _evaluate_state(self, board):
+        """Helper to calculate score (Same as Minimax)."""
+        if self.heuristic_func:
+            return self.heuristic_func(board.board, self.ai_player)
+
+        if board.is_terminal():
+            winner = "O" if board.current_player == "X" else "X"
+            if not board.is_full(): 
+                if winner == self.ai_player:
+                    return 1000000 
+                else:
+                    return -1000000
+        return 0
