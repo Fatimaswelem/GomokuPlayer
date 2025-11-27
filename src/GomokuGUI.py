@@ -1,187 +1,302 @@
 import pygame
 import sys
+from Board import Board
+from AIController import AIController
 
+# --- CONFIGURATION ---
+WIDTH = 600
+HEADER_HEIGHT = 50 
+HEIGHT = WIDTH + HEADER_HEIGHT 
 
+BOARD_COLOR = (200, 170, 120)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (200, 0, 0)      
+GREEN = (0, 150, 0)    
+
+# --- COLORS ---
+HEADER_COLOR = (50, 50, 50)   # Reverted to Old Dark Gray
+BTN_SHADOW = (40, 40, 40)     # Dark Gray for 3D shadow effect
+
+# Difficulty Colors
+COLOR_EASY = (60, 180, 75)    # Green
+COLOR_MED = (255, 215, 0)     # Yellow/Gold
+COLOR_HARD = (220, 60, 60)    # Red
 
 pygame.init()
-current_page='Start'
-#input entry
-text_en = ''
-
-active = False
-
-WIDTH, HEIGHT = 600, 600
-# -----
-
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Gomoku Grid")
+pygame.display.set_caption("Gomoku - AI Project")
+
+class GomokuGUI:
+    def __init__(self):
+        self.current_page = 'Start'
+        self.text_en = '15' 
+        self.active = False
+        
+        # Game State
+        self.board = None
+        self.ai = None
+        self.selected_mode = None 
+        
+        self.cell_size = 0
+        self.cols = 15
+        self.game_over = False
+        self.winner_text = ""
+        self.winner_color = BLACK
+
+    def init_game(self):
+        try:
+            size = int(self.text_en)
+        except ValueError:
+            size = 15
+            
+        self.cols = size
+        self.cell_size = WIDTH // (self.cols + 1)
+        
+        self.board = Board(size=size)
+        self.ai = AIController(depth_limit=3) 
+        
+        self.game_over = False
+        self.winner_text = ""
+
+    def draw_button_3d(self, rect, color, text_surf):
+        """Helper to draw a button with a 3D shadow effect"""
+        # 1. Draw Shadow
+        shadow_rect = pygame.Rect(rect.x + 4, rect.y + 4, rect.width, rect.height)
+        pygame.draw.rect(screen, BTN_SHADOW, shadow_rect, border_radius=8)
+        
+        # 2. Draw Main Button
+        pygame.draw.rect(screen, color, rect, border_radius=8)
+        
+        # 3. Draw Text
+        text_rect = text_surf.get_rect(center=rect.center)
+        screen.blit(text_surf, text_rect)
+
+    def draw_grid(self):
+        screen.fill(BOARD_COLOR)
+        
+        # --- DRAW HEADER BACKGROUND ---
+        pygame.draw.rect(screen, HEADER_COLOR, (0, 0, WIDTH, HEADER_HEIGHT))
+
+        # --- DRAW GRID LINES ---
+        for row in range(self.cols):
+            y = HEADER_HEIGHT + self.cell_size + row * self.cell_size
+            pygame.draw.line(screen, BLACK, (self.cell_size, y), (WIDTH - self.cell_size, y), 2)
+
+        for col in range(self.cols):
+            x = self.cell_size + col * self.cell_size
+            pygame.draw.line(screen, BLACK, (x, HEADER_HEIGHT + self.cell_size), (x, HEIGHT - self.cell_size), 2)
+
+        # --- DRAW PIECES ---
+        if self.board:
+            for r in range(self.board.size):
+                for c in range(self.board.size):
+                    piece = self.board.board[r][c]
+                    if piece != ".":
+                        color = BLACK if piece == "X" else WHITE
+                        x = self.cell_size + c * self.cell_size
+                        y = HEADER_HEIGHT + self.cell_size + r * self.cell_size
+                        pygame.draw.circle(screen, color, (x, y), self.cell_size // 2.2)
+
+        # --- DRAW BACK BUTTON (Header) ---
+        back_rect = pygame.Rect(10, 10, 80, 30)
+        mouse_pos = pygame.mouse.get_pos()
+        b_color = (255, 100, 100) if back_rect.collidepoint(mouse_pos) else (200, 50, 50)
+        
+        pygame.draw.rect(screen, b_color, back_rect, border_radius=5)
+        font_small = pygame.font.SysFont("Arial", 18)
+        text_surf = font_small.render("MENU", True, WHITE)
+        text_rect = text_surf.get_rect(center=back_rect.center)
+        screen.blit(text_surf, text_rect)
+
+        # --- DRAW WINNER TEXT (Styled) ---
+        if self.game_over:
+            font = pygame.font.SysFont("Segoe UI", 30, bold=True) 
+            
+            # 1. Background Box (Styled Color)
+            dummy_txt = font.render(self.winner_text, True, BLACK)
+            text_rect = dummy_txt.get_rect(center=(WIDTH//2, HEIGHT//2))
+            bg_rect = text_rect.inflate(60, 40)
+            
+            pygame.draw.rect(screen, WHITE, bg_rect, border_radius=20)
+            
+            # 2. Text Shadow
+            shadow_surf = font.render(self.winner_text, True, (100, 100, 100))
+            screen.blit(shadow_surf, (text_rect.x + 2, text_rect.y + 2))
+            
+            # 3. Main Text
+            main_surf = font.render(self.winner_text, True, self.winner_color)
+            screen.blit(main_surf, text_rect)
+            
+        return back_rect
+
+    def start_menu(self):
+        screen.fill(BOARD_COLOR)
+        
+        font_large = pygame.font.SysFont("Arial", 32)
+        mouse_pos = pygame.mouse.get_pos()
+        
+        # ------- START BUTTON -------
+        start_rect = pygame.Rect(175, 450, 300, 60)
+        start_bg = (0, 180, 0) if self.selected_mode else BOARD_COLOR
+        
+        text_color = WHITE if self.selected_mode else (100, 100, 100)
+        start_surf = font_large.render("Click To Start", True, text_color)
+        
+        if self.selected_mode:
+            self.draw_button_3d(start_rect, start_bg, start_surf)
+        else:
+            pygame.draw.rect(screen, (150, 140, 120), start_rect, border_radius=8)
+            text_rect = start_surf.get_rect(center=start_rect.center)
+            screen.blit(start_surf, text_rect)
 
 
-BLACK = (0, 0, 0)
-BOARD_COLOR = (200, 170, 120)
-WHITE=(255, 255, 255)
-num_text = int(text_en) if text_en != '' else 15
-ROWS = COLS = num_text + 1
-CELL_SIZE = WIDTH // COLS
-# NEW: store selected difficulty
-selected_difficulty = None
-def draw_grid():
-    screen.fill(BOARD_COLOR)
-    num_text = int(text_en) if text_en != '' else 15
-    ROWS = COLS = num_text + 1
-    global CELL_SIZE
-    CELL_SIZE = WIDTH // COLS
-    for row in range(ROWS):
-        y = CELL_SIZE // 2 + row * CELL_SIZE
-        pygame.draw.line(screen, BLACK,
-                         (CELL_SIZE // 2, y),
-                         (WIDTH - CELL_SIZE // 2, y),
-                         2)
+        # ------- LABELS -------
+        text = font_large.render("Level", True, WHITE)
+        screen.blit(text, (20, 135))
+        
+        text = font_large.render("Board Size", True, WHITE)
+        screen.blit(text, (20, 300))
 
-    for col in range(COLS):
-        x = CELL_SIZE // 2 + col * CELL_SIZE
-        pygame.draw.line(screen, BLACK,
-                         (x, CELL_SIZE // 2),
-                         (x, HEIGHT - CELL_SIZE // 2),
-                         2)
+        # ------- EASY BUTTON (GREEN) -------
+        btn_easy = pygame.Rect(140, 125, 130, 60)
+        # Logic: White if selected/hover, else Green
+        color = COLOR_EASY
+        if self.selected_mode == "Minimax_H1" or btn_easy.collidepoint(mouse_pos):
+            color = WHITE
+        
+        # Text Logic: Black text on White, White text on Green
+        txt_col = BLACK if color == WHITE else WHITE
+        easy_surf = font_large.render("Easy", True, txt_col)
+        self.draw_button_3d(btn_easy, color, easy_surf)
 
+        # ------- MEDIUM BUTTON (YELLOW) -------
+        btn_medium = pygame.Rect(290, 125, 130, 60)
+        color = COLOR_MED
+        if self.selected_mode == "AlphaBeta_H2" or btn_medium.collidepoint(mouse_pos):
+            color = WHITE
+        
+        # Text Logic: Black text on White OR Yellow (for readability)
+        txt_col = BLACK 
+        med_surf = font_large.render("Medium", True, txt_col)
+        self.draw_button_3d(btn_medium, color, med_surf)
 
-def Start_Menue():
-    screen.fill(BOARD_COLOR)
-
-    #-------START BUTTON-------
-    button_rect = pygame.Rect(175,450, 300, 60)
-    pygame.draw.rect(screen, BOARD_COLOR, button_rect)
-    font = pygame.font.SysFont("Arial", 32)
-    mouse_over = button_rect.collidepoint(pygame.mouse.get_pos())
-    color = WHITE if mouse_over else (70, 130, 180)
-    text = font.render("Click To Start", True, color)
-    screen.blit(text, (button_rect.x + 50, button_rect.y + 10))
-    #-------LEVEL CHOICE-------
-    font = pygame.font.SysFont("Arial", 32)
-    text = font.render("Level", True, (255, 255, 255))
-    screen.blit(text, (20,135))
-    #-------EASY BUTTON-------
-    button_Easy = pygame.Rect(140,125, 130, 60)
-    if selected_difficulty == "Easy":
-        color = WHITE
-    else:
-        mouse_over = button_Easy.collidepoint(pygame.mouse.get_pos())
-        color = WHITE if mouse_over else (70, 130, 180)
-    pygame.draw.rect(screen, color, button_Easy)
-    text = font.render("Easy", True, BLACK)
-    screen.blit(text, (button_Easy.x +25, button_Easy.y + 10))
-    #-------MEDIUM BUTTON-------
-    button_Medium = pygame.Rect(290,125, 130, 60)
-    if selected_difficulty == "Medium":
-        color = WHITE
-    else:
-        mouse_over = button_Medium.collidepoint(pygame.mouse.get_pos())
-        color = WHITE if mouse_over else (70, 130, 180)
-    pygame.draw.rect(screen, color, button_Medium)
-    text = font.render("Medium", True, BLACK)
-    screen.blit(text, (button_Medium.x + 25, button_Medium.y + 10))
-
-    #-------HARD BUTTON-------
-    button_Hard = pygame.Rect(440,125, 130, 60)
-    if selected_difficulty == "Hard":
-        color = WHITE
-    else:
-        mouse_over = button_Hard.collidepoint(pygame.mouse.get_pos())
-        color = WHITE if mouse_over else (70, 130, 180)
-    pygame.draw.rect(screen, color, button_Hard)
-    text = font.render("Hard", True, BLACK)
-    screen.blit(text, (button_Hard.x +25, button_Hard.y + 10))
-
-    #-------BOARD SIZE-------
-    font = pygame.font.SysFont("Arial", 32)
-    text = font.render("Board Size", True, (255, 255, 255))
-    screen.blit(text, (20,300))
-
-    #------ENTRY--------
-    box = pygame.Rect(175, 300, 300, 40)
-    mouse_over = box.collidepoint(pygame.mouse.get_pos())
-
-    color = WHITE if mouse_over else (70, 130, 180)
-    pygame.draw.rect(screen, color, box, 2)
-    screen.blit(font.render(text_en, True, (255,255,255)), (box.x+5, box.y+5))
-
-    #------Default Button
-    df_box = pygame.Rect(500, 300, 50, 40)
-    mouse_over = df_box.collidepoint(pygame.mouse.get_pos())
-
-    color = WHITE if mouse_over else (70, 130, 180)
-    pygame.draw.rect(screen, color, df_box, 2)
-    screen.blit(font.render(text_en, True, (255,255,255)), (box.x+5, box.y+5))
-    text = font.render(" 15 ", True, color)
-    screen.blit(text, (df_box.x + 3, df_box.y + 3))
-
-    return {'button_rect':button_rect,'box':box,'df_box':df_box}
-def draw_piece(row, col, color):
-    x = CELL_SIZE//2 + col * CELL_SIZE
-    y = CELL_SIZE//2 + row * CELL_SIZE
-    pygame.draw.circle(screen, color, (x, y), CELL_SIZE//3)
+        # ------- HARD BUTTON (RED) -------
+        btn_hard = pygame.Rect(440, 125, 130, 60)
+        color = COLOR_HARD
+        if self.selected_mode == "AlphaBeta_Combined" or btn_hard.collidepoint(mouse_pos):
+            color = WHITE
+        
+        # Text Logic: Black on White, White on Red
+        txt_col = BLACK if color == WHITE else WHITE
+        hard_surf = font_large.render("Hard", True, txt_col)
+        self.draw_button_3d(btn_hard, color, hard_surf)
 
 
-def get_cell_from_pos(x_p,y_p):
-    col = round((x_p- CELL_SIZE // 2) / CELL_SIZE)
-    row = round((y_p - CELL_SIZE // 2) / CELL_SIZE)
-    draw_piece(row, col, BLACK)
-    if 0 <= col < COLS and 0 <= row < ROWS:
-        return row, col
-    else:
-        return None, None
+        # ------- INPUT ENTRY BOX -------
+        box = pygame.Rect(250, 295, 100, 45)
+        color = WHITE if box.collidepoint(mouse_pos) or self.active else (70, 130, 180)
+        
+        pygame.draw.rect(screen, color, box, border_radius=5)
+        pygame.draw.rect(screen, BLACK, box, 2, border_radius=5)
+        
+        txt_color = BLACK if color == WHITE else WHITE
+        screen.blit(font_large.render(self.text_en, True, txt_color), (box.x+30, box.y+5))
 
+        return {
+            'start': start_rect,
+            'easy': btn_easy,
+            'medium': btn_medium,
+            'hard': btn_hard,
+            'box': box
+        }
 
-button = Start_Menue()
+    def start_game(self):
+        clock = pygame.time.Clock()
+        
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
 
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+                if self.current_page == "Start":
+                    buttons = self.start_menu()
+                    
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        # 1. Start Game
+                        if buttons['start'].collidepoint(event.pos):
+                            if self.selected_mode:
+                                self.init_game()
+                                self.current_page = "Game"
 
-        if current_page == "Start":
-            button = Start_Menue()
+                        # 2. Level Selection
+                        if buttons['easy'].collidepoint(event.pos):
+                            self.selected_mode = "Minimax_H1"
+                        elif buttons['medium'].collidepoint(event.pos):
+                            self.selected_mode = "AlphaBeta_H2"
+                        elif buttons['hard'].collidepoint(event.pos):
+                            self.selected_mode = "AlphaBeta_Combined"
+                        
+                        # 3. Input Box
+                        if buttons['box'].collidepoint(event.pos):
+                            self.active = True
+                        else:
+                            self.active = False
+                    
+                    # 4. Typing
+                    if event.type == pygame.KEYDOWN and self.active:
+                        if event.key == pygame.K_BACKSPACE:
+                            self.text_en = self.text_en[:-1]
+                        else:
+                            if event.unicode.isdigit():
+                                self.text_en += event.unicode
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
+                elif self.current_page == "Game":
+                    back_btn = self.draw_grid()
+                    
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if back_btn.collidepoint(event.pos):
+                            self.current_page = "Start"
+                            self.board = None
+                            self.selected_mode = None 
+                            continue 
 
-                # Start button
-                if button['button_rect'].collidepoint(event.pos):
-                    current_page = "Game"
-                    draw_grid()
+                        if not self.game_over:
+                            if self.board.current_player == "X":
+                                x_mouse, y_mouse = event.pos
+                                if y_mouse < HEADER_HEIGHT:
+                                    continue
 
-                # DIFFICULTY BUTTONS
-                if pygame.Rect(140,125,130,60).collidepoint(event.pos):
-                    selected_difficulty = "Easy"
+                                c = round((x_mouse - self.cell_size) / self.cell_size)
+                                r = round((y_mouse - HEADER_HEIGHT - self.cell_size) / self.cell_size)
+                                
+                                if self.board.make_move(r, c):
+                                    print(f"Human moved: {r}, {c}")
+                                    
+                                    if self.board.is_terminal():
+                                        self.game_over = True
+                                        self.winner_text = "YOU WON ヽ（≧□≦) ノ"
+                                        self.winner_color = GREEN
+                                        
+                                    if not self.game_over:
+                                        self.draw_grid()
+                                        pygame.display.update()
+                                        
+                                        move = self.ai.select_best_move(self.board, self.selected_mode)
+                                        if move:
+                                            self.board.make_move(move[0], move[1])
+                                            print(f"AI moved: {move}")
+                                            
+                                            if self.board.is_terminal():
+                                                self.game_over = True
+                                                self.winner_text = "YOU LOST :("
+                                                self.winner_color = RED
+                                        else:
+                                            print("AI returned None")
+                                            self.game_over = True
+                                            self.winner_text = "DRAW -_-"
+                                            self.winner_color = BLACK
 
-                if pygame.Rect(290,125,130,60).collidepoint(event.pos):
-                    selected_difficulty = "Medium"
-
-                if pygame.Rect(440,125,130,60).collidepoint(event.pos):
-                    selected_difficulty = "Hard"
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if button['df_box'].collidepoint(event.pos):
-                ROWS = COLS =15
-                text_en='15'
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if button['df_box'].collidepoint(event.pos):
-                ROWS = COLS =15
-                text_en='15'
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            active = button['box'].collidepoint(event.pos)
-
-        if event.type == pygame.KEYDOWN and active:
-            if event.key == pygame.K_BACKSPACE:
-                text_en = text_en[:-1]
-            else:
-                text_en += event.unicode
-
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            x, y = event.pos
-            get_cell_from_pos(x,y)
-
-    pygame.display.update()
+            pygame.display.update()
+            clock.tick(30)
