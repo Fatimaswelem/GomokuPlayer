@@ -1,5 +1,8 @@
+# GomokuGUI.py
+
 import pygame
 import sys
+import threading 
 from Board import Board
 from AIController import AIController
 
@@ -15,13 +18,13 @@ RED = (200, 0, 0)
 GREEN = (0, 150, 0)    
 
 # --- COLORS ---
-HEADER_COLOR = (50, 50, 50)   # Reverted to Old Dark Gray
-BTN_SHADOW = (40, 40, 40)     # Dark Gray for 3D shadow effect
+HEADER_COLOR = (50, 50, 50)   
+BTN_SHADOW = (40, 40, 40)     
 
 # Difficulty Colors
-COLOR_EASY = (60, 180, 75)    # Green
-COLOR_MED = (255, 215, 0)     # Yellow/Gold
-COLOR_HARD = (220, 60, 60)    # Red
+COLOR_EASY = (60, 180, 75)    
+COLOR_MED = (255, 215, 0)     
+COLOR_HARD = (220, 60, 60)    
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -43,6 +46,7 @@ class GomokuGUI:
         self.game_over = False
         self.winner_text = ""
         self.winner_color = BLACK
+        self.ai_thinking = False 
 
     def init_game(self):
         try:
@@ -54,21 +58,19 @@ class GomokuGUI:
         self.cell_size = WIDTH // (self.cols + 1)
         
         self.board = Board(size=size)
-        self.ai = AIController(depth_limit=3) 
+        self.ai = AIController(depth_limit=2) 
         
         self.game_over = False
         self.winner_text = ""
+        self.ai_thinking = False 
 
     def draw_button_3d(self, rect, color, text_surf):
         """Helper to draw a button with a 3D shadow effect"""
-        # 1. Draw Shadow
         shadow_rect = pygame.Rect(rect.x + 4, rect.y + 4, rect.width, rect.height)
         pygame.draw.rect(screen, BTN_SHADOW, shadow_rect, border_radius=8)
         
-        # 2. Draw Main Button
         pygame.draw.rect(screen, color, rect, border_radius=8)
         
-        # 3. Draw Text
         text_rect = text_surf.get_rect(center=rect.center)
         screen.blit(text_surf, text_rect)
 
@@ -78,15 +80,28 @@ class GomokuGUI:
         # --- DRAW HEADER BACKGROUND ---
         pygame.draw.rect(screen, HEADER_COLOR, (0, 0, WIDTH, HEADER_HEIGHT))
 
+        # "AI is Thinking..." 
+        if self.ai_thinking:
+            font = pygame.font.SysFont("Segoe UI", 24, bold=True) 
+            text_surf = font.render("AI is Thinking...", True, WHITE)
+            text_rect = text_surf.get_rect(center=(WIDTH // 2, HEADER_HEIGHT // 2))
+            screen.blit(text_surf, text_rect)
+        
         # --- DRAW GRID LINES ---
-        for row in range(self.cols):
-            y = HEADER_HEIGHT + self.cell_size + row * self.cell_size
-            pygame.draw.line(screen, BLACK, (self.cell_size, y), (WIDTH - self.cell_size, y), 2)
+        for i in range(self.cols):
+            x_pos = self.cell_size + i * self.cell_size
+            y_pos = HEADER_HEIGHT + self.cell_size + i * self.cell_size
+            
+            # Vertical lines
+            pygame.draw.line(screen, BLACK, 
+                             (x_pos, HEADER_HEIGHT + self.cell_size), 
+                             (x_pos, HEIGHT - self.cell_size), 2)
 
-        for col in range(self.cols):
-            x = self.cell_size + col * self.cell_size
-            pygame.draw.line(screen, BLACK, (x, HEADER_HEIGHT + self.cell_size), (x, HEIGHT - self.cell_size), 2)
-
+            # Horizontal lines
+            pygame.draw.line(screen, BLACK, 
+                             (self.cell_size, y_pos), 
+                             (WIDTH - self.cell_size, y_pos), 2)
+        
         # --- DRAW PIECES ---
         if self.board:
             for r in range(self.board.size):
@@ -94,8 +109,8 @@ class GomokuGUI:
                     piece = self.board.board[r][c]
                     if piece != ".":
                         color = BLACK if piece == "X" else WHITE
-                        x = self.cell_size + c * self.cell_size
-                        y = HEADER_HEIGHT + self.cell_size + r * self.cell_size
+                        x = self.cell_size + c * self.cell_size 
+                        y = HEADER_HEIGHT + self.cell_size + r * self.cell_size 
                         pygame.draw.circle(screen, color, (x, y), self.cell_size // 2.2)
 
         # --- DRAW BACK BUTTON (Header) ---
@@ -112,23 +127,59 @@ class GomokuGUI:
         # --- DRAW WINNER TEXT (Styled) ---
         if self.game_over:
             font = pygame.font.SysFont("Segoe UI", 30, bold=True) 
-            
-            # 1. Background Box (Styled Color)
             dummy_txt = font.render(self.winner_text, True, BLACK)
             text_rect = dummy_txt.get_rect(center=(WIDTH//2, HEIGHT//2))
             bg_rect = text_rect.inflate(60, 40)
-            
             pygame.draw.rect(screen, WHITE, bg_rect, border_radius=20)
-            
-            # 2. Text Shadow
             shadow_surf = font.render(self.winner_text, True, (100, 100, 100))
             screen.blit(shadow_surf, (text_rect.x + 2, text_rect.y + 2))
-            
-            # 3. Main Text
             main_surf = font.render(self.winner_text, True, self.winner_color)
             screen.blit(main_surf, text_rect)
             
         return back_rect
+
+    # thread function
+    def ai_play_thread(self):
+       
+        move, elapsed_time, nodes_count = self.ai.select_best_move(self.board, self.selected_mode)
+        
+        # عرض تقارير الأداء في Terminal
+        print("-" * 30)
+        print(f"AI Search Finished ({self.selected_mode})")
+        print(f"Time Taken: {elapsed_time:.3f} seconds") 
+        print(f"Nodes Explored: {nodes_count}")
+        print("-" * 30)
+
+        if move:
+            self.board.make_move(move[0], move[1])
+            print(f"AI moved: {move}")
+            
+            if self.board.is_terminal():
+                self.game_over = True
+                 # check the draw first
+                if self.board.is_full():
+                    self.winner_text = "DRAW -_-"
+                    self.winner_color = BLACK
+    
+                else:
+                    self.winner_text = "YOU LOST :("
+                    self.winner_color = RED
+
+        else:
+            if self.board and self.board.is_full(): 
+                 print("AI returned None, Draw (Board Full)")
+                 self.game_over = True
+                 self.winner_text = "DRAW -_-"
+                 self.winner_color = BLACK
+            
+            else:
+                 print("AI returned None unexpectedly (due to limited search), treating as Draw.")
+                 self.game_over = True
+                 self.winner_text = "DRAW -_-"
+                 self.winner_color = BLACK
+            
+        self.ai_thinking = False
+
 
     def start_menu(self):
         screen.fill(BOARD_COLOR)
@@ -160,12 +211,10 @@ class GomokuGUI:
 
         # ------- EASY BUTTON (GREEN) -------
         btn_easy = pygame.Rect(140, 125, 130, 60)
-        # Logic: White if selected/hover, else Green
         color = COLOR_EASY
         if self.selected_mode == "Minimax_H1" or btn_easy.collidepoint(mouse_pos):
             color = WHITE
         
-        # Text Logic: Black text on White, White text on Green
         txt_col = BLACK if color == WHITE else WHITE
         easy_surf = font_large.render("Easy", True, txt_col)
         self.draw_button_3d(btn_easy, color, easy_surf)
@@ -176,7 +225,6 @@ class GomokuGUI:
         if self.selected_mode == "AlphaBeta_H2" or btn_medium.collidepoint(mouse_pos):
             color = WHITE
         
-        # Text Logic: Black text on White OR Yellow (for readability)
         txt_col = BLACK 
         med_surf = font_large.render("Medium", True, txt_col)
         self.draw_button_3d(btn_medium, color, med_surf)
@@ -187,7 +235,6 @@ class GomokuGUI:
         if self.selected_mode == "AlphaBeta_Combined" or btn_hard.collidepoint(mouse_pos):
             color = WHITE
         
-        # Text Logic: Black on White, White on Red
         txt_col = BLACK if color == WHITE else WHITE
         hard_surf = font_large.render("Hard", True, txt_col)
         self.draw_button_3d(btn_hard, color, hard_surf)
@@ -224,13 +271,11 @@ class GomokuGUI:
                     buttons = self.start_menu()
                     
                     if event.type == pygame.MOUSEBUTTONDOWN:
-                        # 1. Start Game
                         if buttons['start'].collidepoint(event.pos):
                             if self.selected_mode:
                                 self.init_game()
                                 self.current_page = "Game"
 
-                        # 2. Level Selection
                         if buttons['easy'].collidepoint(event.pos):
                             self.selected_mode = "Minimax_H1"
                         elif buttons['medium'].collidepoint(event.pos):
@@ -238,13 +283,11 @@ class GomokuGUI:
                         elif buttons['hard'].collidepoint(event.pos):
                             self.selected_mode = "AlphaBeta_Combined"
                         
-                        # 3. Input Box
                         if buttons['box'].collidepoint(event.pos):
                             self.active = True
                         else:
                             self.active = False
                     
-                    # 4. Typing
                     if event.type == pygame.KEYDOWN and self.active:
                         if event.key == pygame.K_BACKSPACE:
                             self.text_en = self.text_en[:-1]
@@ -253,50 +296,46 @@ class GomokuGUI:
                                 self.text_en += event.unicode
 
                 elif self.current_page == "Game":
-                    back_btn = self.draw_grid()
                     
                     if event.type == pygame.MOUSEBUTTONDOWN:
+                        back_btn = self.draw_grid() 
                         if back_btn.collidepoint(event.pos):
                             self.current_page = "Start"
                             self.board = None
                             self.selected_mode = None 
+                            self.ai_thinking = False 
                             continue 
 
-                        if not self.game_over:
+                        # Disable Input during AI turn or Game Over
+                        if not self.game_over and not self.ai_thinking:
                             if self.board.current_player == "X":
                                 x_mouse, y_mouse = event.pos
                                 if y_mouse < HEADER_HEIGHT:
                                     continue
-
+                                
                                 c = round((x_mouse - self.cell_size) / self.cell_size)
                                 r = round((y_mouse - HEADER_HEIGHT - self.cell_size) / self.cell_size)
-                                
-                                if self.board.make_move(r, c):
-                                    print(f"Human moved: {r}, {c}")
-                                    
-                                    if self.board.is_terminal():
-                                        self.game_over = True
-                                        self.winner_text = "YOU WON ヽ（≧□≦) ノ"
-                                        self.winner_color = GREEN
-                                        
-                                    if not self.game_over:
-                                        self.draw_grid()
-                                        pygame.display.update()
-                                        
-                                        move = self.ai.select_best_move(self.board, self.selected_mode)
-                                        if move:
-                                            self.board.make_move(move[0], move[1])
-                                            print(f"AI moved: {move}")
-                                            
-                                            if self.board.is_terminal():
-                                                self.game_over = True
-                                                self.winner_text = "YOU LOST :("
-                                                self.winner_color = RED
-                                        else:
-                                            print("AI returned None")
-                                            self.game_over = True
-                                            self.winner_text = "DRAW -_-"
-                                            self.winner_color = BLACK
 
+                                if 0 <= r < self.board.size and 0 <= c < self.board.size:
+                                    if self.board.make_move(r, c):
+                                        print(f"Human moved: {r}, {c}")
+                                        
+                                        if self.board.is_terminal():
+                                            self.game_over = True
+                                            self.winner_text = "YOU WON ヽ（≧□≦) ノ"
+                                            self.winner_color = GREEN
+                                            
+                                        if not self.game_over:
+                                            # ai start in thread
+                                            self.ai_thinking = True 
+                                            ai_thread = threading.Thread(target=self.ai_play_thread)
+                                            ai_thread.start()
+                                
+            if self.current_page == "Game":
+                self.draw_grid()
+                
+            elif self.current_page == "Start":
+                 self.start_menu() 
+                 
             pygame.display.update()
             clock.tick(30)
