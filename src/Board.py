@@ -1,4 +1,5 @@
-# Game board and move logic
+# Board.py
+
 # Game board and move logic - AI CONTROLLER COMPATIBLE VERSION
 class Board:
     def __init__(self, size=15):
@@ -8,13 +9,46 @@ class Board:
         self.last_move = None      # Track the last move for efficient win checking
 
     def get_possible_moves(self):
-        """Returns a list of (row, col) tuples for all empty spots."""
-        moves = []
+        """
+        FIXED: Returns a limited list of (row, col) tuples of empty spots 
+        near existing pieces to reduce the branching factor (Candidate Moves).
+        """
+        if not self.last_move:
+            center = self.size // 2
+            return [(center, center)]
+
+        return self._get_candidate_moves(search_radius=2)
+
+
+    def _get_all_pieces(self):
+        """Helper: Gets coordinates of all placed pieces."""
+        pieces = []
         for r in range(self.size):
             for c in range(self.size):
-                if self.board[r][c] == ".":
-                    moves.append((r, c))
-        return moves
+                if self.board[r][c] != ".":
+                    pieces.append((r, c))
+        return pieces
+
+    def _get_candidate_moves(self, search_radius):
+        """Generates a limited list of promising moves (empty spots near placed pieces)."""
+        candidate_moves = set()
+        
+        pieces = self._get_all_pieces()
+        
+        for r_piece, c_piece in pieces:
+            for dr in range(-search_radius, search_radius + 1):
+                for dc in range(-search_radius, search_radius + 1):
+                    r_move, c_move = r_piece + dr, c_piece + dc
+                    
+                    if (0 <= r_move < self.size and 
+                        0 <= c_move < self.size and 
+                        self.board[r_move][c_move] == '.'):
+                        
+                        candidate_moves.add((r_move, c_move))
+                        
+        return list(candidate_moves)
+
+
 
     def make_move(self, row, col):
         """Places the current player's piece and toggles the turn."""
@@ -30,10 +64,13 @@ class Board:
     def undo_move(self, row, col):
         """Removes a piece and toggles the turn back. ESSENTIAL FOR AI."""
         if 0 <= row < self.size and 0 <= col < self.size:
-            self.board[row][col] = '.'
-            # Toggle player back
-            self.current_player = "O" if self.current_player == "X" else "X"
-            self.last_move = None # (Optional: handling strictly not needed for Minimax recursion but good practice)
+            if self.board[row][col] != '.': 
+                
+                self.current_player = "O" if self.current_player == "X" else "X"
+                
+                self.board[row][col] = '.'
+                return True
+        return False
 
     def is_terminal(self):
         """Checks if the game is over (Win or Draw)."""
@@ -54,7 +91,7 @@ class Board:
             
         return False
 
-    # --- Mohammed's Original Helper Logic (Slightly Adapted) ---
+    # --- Mohammed's Original Helper Logic (Win Checking) ---
 
     def count_in_direction(self, x, y, dx, dy, player):
         count = 0
@@ -75,7 +112,7 @@ class Board:
             count += self.count_in_direction(x, y, dx, dy, player)
             count += self.count_in_direction(x, y, -dx, -dy, player)
             
-            if count >= 5:
+            if count == 5:
                 return True
         return False
 
