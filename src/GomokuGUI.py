@@ -105,8 +105,6 @@ class GomokuGUI:
             text_rect = dummy_txt.get_rect(center=(WIDTH//2, HEIGHT//2))
             bg_rect = text_rect.inflate(60, 40)
             pygame.draw.rect(screen, POPUP_BG, bg_rect, border_radius=20)
-            shadow_surf = font.render(self.winner_text, True, (100, 100, 100))
-            screen.blit(shadow_surf, (text_rect.x + 2, text_rect.y + 2))
             main_surf = font.render(self.winner_text, True, self.winner_color)
             screen.blit(main_surf, text_rect)
             
@@ -128,7 +126,7 @@ class GomokuGUI:
             # Because a winning move on the last spot is a WIN, not a DRAW.
             if self.board.check_winner(move[0], move[1], "O"): # O is AI
                 self.game_over = True
-                self.winner_text = "YOU LOST (┬┬﹏┬┬)"
+                self.winner_text = "YOU LOST :( "
                 self.winner_color = RED
             elif self.board.is_full():
                 self.game_over = True
@@ -237,7 +235,7 @@ class GomokuGUI:
                                         # Win/Draw check for Human
                                         if self.board.check_winner(r, c, "X"):
                                             self.game_over = True
-                                            self.winner_text = "YOU WON ヽ（≧□≦) ノ"
+                                            self.winner_text = "YOU WON :)"
                                             self.winner_color = GREEN
                                         elif self.board.is_full():
                                             self.game_over = True

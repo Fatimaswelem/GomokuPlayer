@@ -14,6 +14,7 @@ class AIController:
     def __init__(self, depth_limit=3): 
         
         # --- 1. EASY MODE (Minimax + H1 @ Depth 1) ---
+        # To make it harder, change to depth=2
         self.easy_bot = Minimax(depth=1, heuristic_func=evaluate) 
         
         # --- 2. MEDIUM MODE (AlphaBeta + H1 + H2 @ Depth 3) ---
