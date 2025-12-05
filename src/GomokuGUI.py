@@ -321,9 +321,13 @@ class GomokuGUI:
                                         print(f"Human moved: {r}, {c}")
                                         
                                         if self.board.is_terminal():
-                                            self.game_over = True
-                                            self.winner_text = "YOU WON ヽ（≧□≦) ノ"
-                                            self.winner_color = GREEN
+                                            if self.board.is_full():
+                                                self.winner_text = "DRAW -_-"
+                                                self.winner_color = BLACK
+                                            else:
+                                                self.game_over = True
+                                                self.winner_text = "YOU WON ヽ（≧□≦) ノ"
+                                                self.winner_color = GREEN
                                             
                                         if not self.game_over:
                                             # ai start in thread
