@@ -125,7 +125,7 @@ def evaluate_line(line, player):
     return score
 
 
-# Main Evaluation Function (Heuristic 1)
+# HEURISTIC 1 (Main Evaluation Function)
 def evaluate(board, player=AI):
     score = 0
     lines = get_lines(board)
@@ -143,7 +143,7 @@ def evaluate(board, player=AI):
     return score
 
 
-# GOMOKU DISTANCE-TO-CENTER HEURISTIC EVALUATION FUNCTION_2
+# HEURISTIC 2: DISTANCE-TO-CENTER
 
 def distance_score(r, c, n):
     center = (n - 1) / 2.0
@@ -174,6 +174,35 @@ def evaluate_distance_to_center(board, player=AI):
 
     return score
 
+# ... (Keep existing code for H1 and H2) ...
+
+# HEURISTIC 3: MOBILITY / FREEDOM
+# Checks how much "breathing room" the stones have.
+def evaluate_freedom(board, player):
+    n = len(board)
+    score = 0
+    
+    # Directions: Horizontal, Vertical, Diagonal 1, Diagonal 2
+    directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
+    
+    for r in range(n):
+        for c in range(n):
+            if board[r][c] == player:
+                # Check all 4 directions around this stone
+                for dr, dc in directions:
+                    # Check "forward" side
+                    nr, nc = r + dr, c + dc
+                    if 0 <= nr < n and 0 <= nc < n and board[nr][nc] == ".":
+                        score += 10  # Point for open space
+                    
+                    # Check "backward" side
+                    pr, pc = r - dr, c - dc
+                    if 0 <= pr < n and 0 <= pc < n and board[pr][pc] == ".":
+                        score += 10 # Point for open space
+
+    return score
+
+
 # --- Example Usage (Assuming an 8x8 Board) ---
 board = [
     ['.', '.', '.', '.', '.', '.', '.', '.'],
@@ -187,5 +216,9 @@ board = [
 ]
 
 if __name__ == "__main__":
+    # Assuming default player is "X" for the first two if defaults are set
     print(f"Pattern Score: {evaluate(board)}")
     print(f"Distance Score: {evaluate_distance_to_center(board)}")
+    
+    # Check the new 3rd Heuristic (Freedom) for Player X
+    print(f"Freedom Score: {evaluate_freedom(board, 'X')}")
