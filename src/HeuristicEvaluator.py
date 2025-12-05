@@ -1,49 +1,56 @@
+# HeuristicEvaluator.py
+
 # Two different evaluation functions
-# GOMOKU HEURISTIC EVALUATION FUNCTION_1
+# GOMOKU HEURISTIC EVALUATION FUNCTION_1 (Pattern Scoring)
+
 # Constants must match Board.py
 AI = "X"
 OP = "O"
-EMPTY = "."  # CHANGED: Was "_"
+EMPTY = "."  # Changed: Was "_"
 
 PATTERN_SCORES = {
     # --- AI (Maximizing) Patterns ---
-    "XXXXX": 100000000,      # Win
-    ".XXXX.": 100000,        # Open four (Guaranteed win next turn)
-    "XX.XX": 10000,          # Split four
+    "XXXXX": 100000000,        # Win
+    ".XXXX.": 100000,          # Open four (Guaranteed win next turn)
+    "XX.XX": 10000,            # Split four
     "X.XXX": 10000,
     "XXX.X": 10000,
-    "OXXXX.": 10000,         # Closed four (Threat)
+    "OXXXX.": 10000,           # Closed four (Threat)
     ".XXXXO": 10000,
-    ".XXX.": 5000,           # Open three
-    "OXXX.": 500,            # Closed three
+    ".XXX.": 5000,             # Open three
+    "OXXX.": 500,              # Closed three
     ".XXXO": 500,
-    ".XX.X.": 200,           # Split three
+    ".XX.X.": 200,             # Split three
     ".X.XX.": 200,
-    ".XX.": 200,             # Open two
-    "OXX.": 50,              # Closed two
+    ".XX.": 200,               # Open two
+    "OXX.": 50,                # Closed two
     ".XXO": 50,
 
     # --- Opponent (Minimizing) Patterns ---
     # We punish these heavily so Minimax avoids them
-    "OOOOO": -100000000,     # Lose
-    ".OOOO.": -100000,       # Opponent Open four
-    "OO.OO": -10000,
-    "O.OOO": -10000,
-    "OOO.O": -10000,
-    "XOOOO.": -10000,        # Opponent Closed four
-    ".OOOOX": -10000,
-    ".OOO.": -5000,          # Opponent Open three
-    "XOOO.": -500,           # Opponent Closed three
-    ".OOOX": -500,
-    ".OO.O.": -200,
-    ".O.OO.": -200,
-    ".OO.": -200,            # Opponent Open two
-    "XOO.": -50,             # Opponent Closed two
+    "OOOOO": -1500000000,      # Lose
+    ".OOOO.": -1500000,         # Opponent Open four
+    "OO.OO": -150000,
+    "O.OOO": -150000,
+    "OOO.O": -150000,
+    "XOOOO.": -150000,          # Opponent Closed four
+    ".OOOOX": -150000,
+    ".OOO.": -55000,            # Opponent Open three
+    "XOOO.": -5500,             # Opponent Closed three
+    ".OOOX": -5500,
+    ".OO.O.": -2500,
+    ".O.OO.": -2500,
+    ".OO.": -2500,              # Opponent Open two
+    "XOO.": -50,                # Opponent Closed two
     ".OOX": -50,
 }
 
 # Extract rows, columns, diagonals as strings
 def get_lines(board):
+    """
+    Extracts all horizontal, vertical, and diagonal lines from the board 
+    where a 5-in-a-row can potentially be found.
+    """
     # Important: 'board' here must be the 2D list, not the Board object
     n = len(board)
     lines = []
@@ -105,15 +112,12 @@ def get_lines(board):
 
 # Evaluate Patterns in a Single Line
 def evaluate_line(line, player):
+    """Calculates the score for a single line based on patterns."""
     score = 0
-    opp = OP if player == AI else AI
-
-    # To simplify pattern matching, we can replace the player's char with 'X'
-    # and opponent with 'O' just for the lookup, or duplicte dictionary.
-    # The current approach iterates keys and checks based on player.
+    # Note: 'opp' is not used here but is defined implicitly in the logic below
     
     for pattern, value in PATTERN_SCORES.items():
-        if player == AI: # If we are 'X'
+        if player == AI: # If we are 'X' (the default perspective)
             if pattern in line:
                 score += value
         else: # If we are 'O', we need to flip the pattern logic
@@ -125,8 +129,9 @@ def evaluate_line(line, player):
     return score
 
 
-# HEURISTIC 1 (Main Evaluation Function)
+# Main Evaluation Function (Heuristic 1)
 def evaluate(board, player=AI):
+    """H1: Calculates the total score based on patterns (Tactical)."""
     score = 0
     lines = get_lines(board)
 
@@ -143,9 +148,10 @@ def evaluate(board, player=AI):
     return score
 
 
-# HEURISTIC 2: DISTANCE-TO-CENTER
+# GOMOKU DISTANCE-TO-CENTER HEURISTIC EVALUATION FUNCTION_2
 
 def distance_score(r, c, n):
+    """Calculates a positional score based on distance to the center."""
     center = (n - 1) / 2.0
 
     # Manhattan distance from center
@@ -157,6 +163,7 @@ def distance_score(r, c, n):
 
 # Evaluate whole board based on piece positions
 def evaluate_distance_to_center(board, player=AI):
+    """H2: Calculates the total score based on positional advantage (Strategic)."""
     n = len(board)
     score = 0
     opponent = OP if player == AI else AI
@@ -170,55 +177,59 @@ def evaluate_distance_to_center(board, player=AI):
 
             elif cell == opponent:
                 # We subtract score for opponent's good positions
-                score -= distance_score(r, c, n) * 1.2  
-
-    return score
-
-# ... (Keep existing code for H1 and H2) ...
-
-# HEURISTIC 3: MOBILITY / FREEDOM
-# Checks how much "breathing room" the stones have.
-def evaluate_freedom(board, player):
-    n = len(board)
-    score = 0
-    
-    # Directions: Horizontal, Vertical, Diagonal 1, Diagonal 2
-    directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
-    
-    for r in range(n):
-        for c in range(n):
-            if board[r][c] == player:
-                # Check all 4 directions around this stone
-                for dr, dc in directions:
-                    # Check "forward" side
-                    nr, nc = r + dr, c + dc
-                    if 0 <= nr < n and 0 <= nc < n and board[nr][nc] == ".":
-                        score += 10  # Point for open space
-                    
-                    # Check "backward" side
-                    pr, pc = r - dr, c - dc
-                    if 0 <= pr < n and 0 <= pc < n and board[pr][pc] == ".":
-                        score += 10 # Point for open space
+                score -= distance_score(r, c, n) * 2  
 
     return score
 
 
-# --- Example Usage (Assuming an 8x8 Board) ---
-board = [
-    ['.', '.', '.', '.', '.', '.', '.', '.'],
-    ['.', 'O', '.', '.', '.', '.', '.', '.'],
-    ['.', '.', 'O', '.', '.', '.', '.', '.'],
-    ['.', 'X', '.', 'O', '.', '.', '.', '.'],
-    ['.', '.', 'X', '.', '.', '.', '.', '.'],
-    ['.', '.', '.', '.', '.', '.', '.', '.'],
-    ['.', '.', '.', '.', 'X', '.', '.', '.'],
-    ['.', '.', '.', '.', '.', '.', '.', '.']
-]
+# =========================================================================
+# === NEW COMBINED HEURISTICS FOR MEDIUM AND HARD MODE ===
+# =========================================================================
+
+def combined_heuristic_medium(board, player):
+    """
+    Medium Mode Heuristic: H1 (Pattern) + H2 (Center). 
+    Balanced tactical and strategic evaluation.
+    """
+    # H1: Pattern Score (Tactical)
+    score_h1 = evaluate(board, player) 
+    
+    # H2: Distance to Center Score (Strategic)
+    score_h2 = evaluate_distance_to_center(board, player) 
+    
+    return score_h1 + score_h2
+
+def combined_heuristic_hard(board, player):
+    """
+    Hard Mode Heuristic: H1 (Aggressive Pattern) + H2 (Center). (2:1 Ratio)
+    Increasing H1 weight to make it more tactical and offensive.
+    """
+    
+    # H1: Pattern Score (Tactical)
+    score_h1 = evaluate(board, player) 
+    
+    # H2: Distance to Center Score (Strategic)
+    score_h2 = evaluate_distance_to_center(board, player) 
+    # double weight 
+    H1_WEIGHT = 2.0 
+    
+    return (score_h1 * H1_WEIGHT) + score_h2
 
 if __name__ == "__main__":
-    # Assuming default player is "X" for the first two if defaults are set
-    print(f"Pattern Score: {evaluate(board)}")
-    print(f"Distance Score: {evaluate_distance_to_center(board)}")
-    
-    # Check the new 3rd Heuristic (Freedom) for Player X
-    print(f"Freedom Score: {evaluate_freedom(board, 'X')}")
+    # --- Example Usage (Assuming an 8x8 Board) ---
+    board = [
+        ['.', '.', '.', '.', '.', '.', '.', '.'],
+        ['.', 'O', '.', '.', '.', '.', '.', '.'],
+        ['.', '.', 'O', '.', '.', '.', '.', '.'],
+        ['.', 'X', '.', 'O', '.', '.', '.', '.'],
+        ['.', '.', 'X', '.', '.', '.', '.', '.'],
+        ['.', '.', '.', '.', '.', '.', '.', '.'],
+        ['.', '.', '.', '.', 'X', '.', '.', '.'],
+        ['.', '.', '.', '.', '.', '.', '.', '.']
+    ]
+
+    print(f"--- Player X's Perspective ---")
+    print(f"H1 (Pattern Score): {evaluate(board, player='X')}")
+    print(f"H2 (Distance Score): {evaluate_distance_to_center(board, player='X')}")
+    print(f"Combined (Medium) Score: {combined_heuristic_medium(board, player='X')}")
+    print(f"Combined (Medium) Score: {combined_heuristic_hard(board, player='X')}")
