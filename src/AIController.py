@@ -5,38 +5,37 @@ import random
 import time 
 from Minimax import Minimax
 from AlphaBeta import AlphaBeta 
-from HeuristicEvaluator import evaluate, evaluate_distance_to_center
+from HeuristicEvaluator import (
+    evaluate,                   # H2
+    evaluate_distance_to_center,# H2
+    combined_heuristic_medium,  #  H1 + H2 
+    combined_heuristic_hard     #  H1 + H2 + H3 
+)
 
 class AIController:
     
-    def __init__(self, depth_limit=2): 
-        self.depth_limit = depth_limit 
+    def __init__(self, depth_limit=2):
+        self.depth_limit = depth_limit
 
         # --- Initialize Algorithms ---
-        # 1. easy Mode: Minimax + h1 @ Depth 3 
-        self.minimax_h1 = Minimax(2, heuristic_func=evaluate) 
         
-        # 2. Medium Mode: AlphaBeta + H1 @ Depth 2
-        self.alphabeta_h1 = AlphaBeta(2, heuristic_func=evaluate) 
-
-        # 3. Hard Mode: AlphaBeta + Combined @ Depth 3 
-        self.alphabeta_combined = AlphaBeta(2, heuristic_func=self.combined_heuristic) 
-
+        # 1. Easy Mode: Minimax + H1 @ Depth 2
+        self.minimax_h1 = Minimax(1, heuristic_func=evaluate) 
         
+        #  2. Medium Mode: AlphaBeta + H_Medium (H1 + H2) @ Depth 2
+        # (Uses the original name 'alphabeta_h1' for compatibility with select_best_move)
+        self.alphabeta_h1 = AlphaBeta(2, heuristic_func=combined_heuristic_medium) 
+
+        # 3. Hard Mode: AlphaBeta + H_Hard (H1 + H2 + H3 )
+        # (Uses the original name 'alphabeta_combined')
+        self.alphabeta_combined = AlphaBeta(2, heuristic_func=combined_heuristic_hard) 
+        
+        
+        # --- Other Optional Modes (Keeping the user's original definitions) ---
         self.minimax_basic = Minimax(self.depth_limit, heuristic_func=None)
         self.alphabeta_basic = AlphaBeta(self.depth_limit, heuristic_func=None)
         self.minimax_h2 = Minimax(self.depth_limit, heuristic_func=evaluate_distance_to_center)
         self.alphabeta_h2 = AlphaBeta(self.depth_limit, heuristic_func=evaluate_distance_to_center)
-
-
-    def combined_heuristic(self, board_grid, player):
-        """
-        Calculates the sum of H1 (Pattern) and H2 (Distance).
-        """
-        h1_score = evaluate(board_grid, player)
-        h2_score = evaluate_distance_to_center(board_grid, player)
-        return h1_score + h2_score
-
 
     def get_greedy_move(self, board, heuristic_func):
         """Finds the best move at depth 1 (Greedy)."""
@@ -51,7 +50,8 @@ class AIController:
             nodes_count += 1
             board.make_move(r, c)
             
-            eval_player = "O" if board.current_player == "X" else "X"
+            # The player whose turn it WAS when the move was made
+            eval_player = "O" if board.current_player == "X" else "X" 
             score = heuristic_func(board.board, eval_player) 
             
             board.undo_move(r, c)
@@ -78,15 +78,17 @@ class AIController:
             move = self.minimax_h1.find_best_move(board)
             nodes_count = self.minimax_h1.nodes_explored
 
-        # AlphaBeta H2 (Medium) -
+        #  AlphaBeta H2 (MEDIUM Mode - Now uses H1 + H2 heuristic)
         elif mode == "AlphaBeta_H2": 
+            # This uses the agent self.alphabeta_h1 which is now set to H_Medium
             self.alphabeta_h1.nodes_explored = 0
             self.alphabeta_h1.pruning_count = 0
             move = self.alphabeta_h1.find_best_move(board)
             nodes_count = self.alphabeta_h1.nodes_explored
 
-        # --- AlphaBeta Combined (Hard) ---
+        #  AlphaBeta Combined (HARD Mode - Now uses H1 + H2 + H3 Enhanced heuristic)
         elif mode == "AlphaBeta_Combined":
+            # This uses the agent self.alphabeta_combined which is now set to H_Hard
             self.alphabeta_combined.nodes_explored = 0
             self.alphabeta_combined.pruning_count = 0
             move = self.alphabeta_combined.find_best_move(board)
@@ -110,7 +112,9 @@ class AIController:
             move = self.minimax_h2.find_best_move(board)
             nodes_count = self.minimax_h2.nodes_explored
         elif mode == "AlphaBeta_H1":
-            self.alphabeta_h1.nodes_explored = 0
+            # This block relies on the user's original setup where alphabeta_h1 was H1 only
+            # Since alphabeta_h1 is now H_Medium, this mode will also use H_Medium (H1+H2)
+            self.alphabeta_h1.nodes_explored = 0 
             move = self.alphabeta_h1.find_best_move(board)
             nodes_count = self.alphabeta_h1.nodes_explored
             
