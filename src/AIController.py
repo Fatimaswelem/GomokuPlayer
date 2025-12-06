@@ -23,7 +23,7 @@ class AIController:
         # --- 3. HARD MODE (AlphaBeta + H1 + H2 + H3 @ Depth 4) ---
         self.hard_bot = AlphaBeta(depth=4, heuristic_func=self.heuristic_hard) 
 
-        # --- Backup / Optional Modes ---
+        # ---EDIT THISS Backup / Optional Modes ---
         self.minimax_basic = Minimax(1, heuristic_func=None)
         self.alphabeta_basic = AlphaBeta(1, heuristic_func=None)
         self.minimax_h2 = Minimax(1, heuristic_func=evaluate_distance_to_center)
