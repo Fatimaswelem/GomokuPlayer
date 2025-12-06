@@ -1,48 +1,73 @@
-# Game board and move logic
+# Board.py
+
 # Game board and move logic - AI CONTROLLER COMPATIBLE VERSION
 class Board:
     def __init__(self, size=15):
         self.size = size
         self.board = [["." for _ in range(size)] for _ in range(size)]
-        self.current_player = "X"  # Track whose turn it is (X goes first)
-        self.last_move = None      # Track the last move for efficient win checking
+        self.current_player = "X"
+        self.last_move = None
 
     def get_possible_moves(self):
-        """Returns a list of (row, col) tuples for all empty spots."""
-        moves = []
+        """
+        Returns candidate moves sorted by potential (Center moves first).
+        Radius 1 (Direct neighbors) is used for maximum speed at Depth 4.
+        """
+        if not self.last_move:
+            center = self.size // 2
+            return [(center, center)]
+        
+        # 1. Get all pieces
+        occupied = []
         for r in range(self.size):
             for c in range(self.size):
-                if self.board[r][c] == ".":
-                    moves.append((r, c))
-        return moves
+                if self.board[r][c] != ".":
+                    occupied.append((r, c))
+        
+        # 2. Find neighbors (Radius 1 for speed)
+        possible = set()
+        radius = 1 
+        for r, c in occupied:
+            for dr in range(-radius, radius + 1):
+                for dc in range(-radius, radius + 1):
+                    if dr == 0 and dc == 0: continue
+                    
+                    nr, nc = r + dr, c + dc
+                    
+                    if 0 <= nr < self.size and 0 <= nc < self.size:
+                        if self.board[nr][nc] == ".":
+                            possible.add((nr, nc))
+                            
+        # 3. Sort by distance to center (Crucial for Alpha-Beta pruning efficiency)
+        center = self.size // 2
+        sorted_moves = sorted(list(possible), key=lambda m: abs(m[0]-center) + abs(m[1]-center))
+        
+        return sorted_moves
 
     def make_move(self, row, col):
-        """Places the current player's piece and toggles the turn."""
         if 0 <= row < self.size and 0 <= col < self.size:
             if self.board[row][col] == '.':
                 self.board[row][col] = self.current_player
                 self.last_move = (row, col)
-                # Toggle player
                 self.current_player = "O" if self.current_player == "X" else "X"
                 return True
         return False
 
     def undo_move(self, row, col):
-        """Removes a piece and toggles the turn back. ESSENTIAL FOR AI."""
         if 0 <= row < self.size and 0 <= col < self.size:
-            self.board[row][col] = '.'
-            # Toggle player back
-            self.current_player = "O" if self.current_player == "X" else "X"
-            self.last_move = None # (Optional: handling strictly not needed for Minimax recursion but good practice)
+            if self.board[row][col] != '.':
+                self.current_player = "O" if self.current_player == "X" else "X"
+                self.board[row][col] = '.'
+                # Note: last_move is not strictly reverted for efficiency in search, 
+                # but grid/player state is correct.
+                return True
+        return False
 
     def is_terminal(self):
-        """Checks if the game is over (Win or Draw)."""
-        # If no moves have been made, game is not over
         if not self.last_move:
             return False
-            
-        # Check if the LAST move won the game
-        # We check the player who Just moved (the previous player)
+        
+        # Check if the move that just happened caused a win
         prev_player = "O" if self.current_player == "X" else "X"
         r, c = self.last_move
         
@@ -54,11 +79,8 @@ class Board:
             
         return False
 
-    # --- Mohammed's Original Helper Logic (Slightly Adapted) ---
-
     def count_in_direction(self, x, y, dx, dy, player):
         count = 0
-        # Look forward
         cx, cy = x + dx, y + dy
         while 0 <= cx < self.size and 0 <= cy < self.size and self.board[cx][cy] == player:
             count += 1
@@ -67,15 +89,14 @@ class Board:
         return count
 
     def check_winner(self, x, y, player):
-        """Checks if the specific move at (x,y) by 'player' caused a win."""
         directions = [(1, 0), (0, 1), (1, 1), (1, -1)]
         for dx, dy in directions:
-            # Check strictly 5 in a row
-            count = 1  # The piece itself
+            count = 1 
             count += self.count_in_direction(x, y, dx, dy, player)
             count += self.count_in_direction(x, y, -dx, -dy, player)
             
-            if count >= 5:
+            # RULE IMPLEMENTATION: Exact 5 stones wins. 6+ (Overline) does NOT win.
+            if count == 5:
                 return True
         return False
 

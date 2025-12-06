@@ -1,99 +1,117 @@
+# AIController.py
+
 # Manages algorithm selection, integration, and comparison
+# AIController.py
+# AIController.py
 import random
-import time
+import time 
 from Minimax import Minimax
 from AlphaBeta import AlphaBeta 
-from HeuristicEvaluator import evaluate, evaluate_distance_to_center
+from HeuristicEvaluator import evaluate, evaluate_distance_to_center, evaluate_freedom
 
 class AIController:
-    def __init__(self, depth_limit=3):
-        self.depth_limit = depth_limit
-
-        # --- Initialize Algorithms ---
+    
+    def __init__(self, depth_limit=3): 
         
-        # 1. Minimax + Heuristic 1 (Pattern)
-        self.minimax_h1 = Minimax(depth_limit, heuristic_func=evaluate)
+        # --- 1. EASY MODE (Minimax + H1 @ Depth 1) ---
+        # To make it harder, change to depth=2
+        self.easy_bot = Minimax(depth=1, heuristic_func=evaluate) 
         
-        # 2. AlphaBeta + Heuristic 2 (Center Distance) - You asked for this specifically
-        self.alphabeta_h2 = AlphaBeta(depth_limit, heuristic_func=evaluate_distance_to_center)
+        # --- 2. MEDIUM MODE (AlphaBeta + H1 + H2 @ Depth 3) ---
+        self.medium_bot = AlphaBeta(depth=3, heuristic_func=self.heuristic_medium) 
 
-        # 3. NEW: AlphaBeta + Combined (H1 + H2)
-        # We pass the 'combined_heuristic' method defined below
-        self.alphabeta_combined = AlphaBeta(depth_limit, heuristic_func=self.combined_heuristic)
+        # --- 3. HARD MODE (AlphaBeta + H1 + H2 + H3 @ Depth 4) ---
+        self.hard_bot = AlphaBeta(depth=4, heuristic_func=self.heuristic_hard) 
 
-        # (Keep the others for your other modes if needed)
-        self.minimax_basic = Minimax(depth_limit, heuristic_func=None)
-        self.alphabeta_basic = AlphaBeta(depth_limit, heuristic_func=None)
-        self.minimax_h2 = Minimax(depth_limit, heuristic_func=evaluate_distance_to_center)
-        self.alphabeta_h1 = AlphaBeta(depth_limit, heuristic_func=evaluate)
+        # --- Backup / Optional Modes ---
+        self.minimax_basic = Minimax(1, heuristic_func=None)
+        self.alphabeta_basic = AlphaBeta(1, heuristic_func=None)
+        self.minimax_h2 = Minimax(1, heuristic_func=evaluate_distance_to_center)
+        self.alphabeta_h1 = AlphaBeta(1, heuristic_func=evaluate)
+        self.alphabeta_h2 = AlphaBeta(1, heuristic_func=evaluate_distance_to_center)
 
-    def combined_heuristic(self, board_grid, player):
-        """
-        Calculates the sum of H1 and H2.
-        H1 handles tactical threats (High scores).
-        H2 handles positional advantage (Low scores).
-        """
-        score_h1 = evaluate(board_grid, player)
-        score_h2 = evaluate_distance_to_center(board_grid, player)
-        
-        # Simply adding them works as a perfect tie-breaker logic
-        return score_h1 + score_h2
+    # --- Heuristic Combinations ---
+
+    def heuristic_medium(self, board_grid, player):
+        """Medium: Pattern (H1) + Center (H2)"""
+        h1 = evaluate(board_grid, player)
+        h2 = evaluate_distance_to_center(board_grid, player)
+        return h1 + h2
+
+    def heuristic_hard(self, board_grid, player):
+        """Hard: Pattern (H1) + Center (H2) + Freedom (H3)"""
+        h1 = evaluate(board_grid, player) 
+        h2 = evaluate_distance_to_center(board_grid, player)
+        h3 = evaluate_freedom(board_grid, player)
+        return (h1 * 1.5) + h2 + h3
+
+    # --- Greedy Logic ---
 
     def get_greedy_move(self, board, heuristic_func):
-        """Modes 1 & 2: Greedy Search (1 step lookahead)."""
-        nodes_explored = 0 
-        best_score = float('-inf')
+        """Finds the best move at depth 1 (Greedy)."""
+        best_score = -float('inf')
         best_move = None
+        nodes_count = 0
         
-        legal_moves = board.get_possible_moves()
-        if not legal_moves: return None, 0
-        random.shuffle(legal_moves)
+        possible_moves = board.get_possible_moves()
+        if not possible_moves: return None, 0
+        random.shuffle(possible_moves)
 
-        for r, c in legal_moves:
-            nodes_explored += 1
+        for r, c in possible_moves:
+            nodes_count += 1
             board.make_move(r, c)
-            player_who_just_moved = "O" if board.current_player == "X" else "X"
             
-            # Use the heuristic function passed in
-            score = heuristic_func(board.board, player_who_just_moved)
+            eval_player = "O" if board.current_player == "X" else "X"
+            score = heuristic_func(board.board, eval_player) 
             
             board.undo_move(r, c)
             
             if score > best_score:
                 best_score = score
                 best_move = (r, c)
-        
-        return best_move, nodes_explored
+                
+        return best_move, nodes_count
+
+    # --- Main Selection Logic ---
 
     def select_best_move(self, board, mode):
-        """
-        Executes the logic for the modes AND tracks performance stats.
-        """
-        print(f"--- AI Turn: {mode} ---")
+        print(f"--- AI Thinking: {mode} ---")
         start_time = time.time()
-        
         move = None
         nodes_count = 0
-
-        # --- MODE 1: Minimax + H1 ---
+        
+        # 1. EASY (Blunder Factor Added)
         if mode == "Minimax_H1":
-            self.minimax_h1.nodes_explored = 0
-            move = self.minimax_h1.find_best_move(board)
-            nodes_count = self.minimax_h1.nodes_explored
+            # 30% Chance to make a mistake (Human-like beginner behavior)
+            # It picks a random "reasonable" move near other stones instead of the perfect one.
+            if random.random() < 0.3:
+                candidates = board.get_possible_moves()
+                if candidates:
+                    print(">> Oops! AI made a blunder (Easy Mode).")
+                    move = random.choice(candidates)
+                    nodes_count = 0 # No search done
+            
+            # 70% Chance to play the best move
+            if move is None: 
+                self.easy_bot.nodes_explored = 0
+                move = self.easy_bot.find_best_move(board)
+                nodes_count = self.easy_bot.nodes_explored
 
-        # --- MODE 2: AlphaBeta + H2 ---
-        elif mode == "AlphaBeta_H2":
-            self.alphabeta_h2.nodes_explored = 0
-            move = self.alphabeta_h2.find_best_move(board)
-            nodes_count = self.alphabeta_h2.nodes_explored
+        # 2. MEDIUM
+        elif mode == "AlphaBeta_H2": 
+            self.medium_bot.nodes_explored = 0
+            self.medium_bot.pruning_count = 0
+            move = self.medium_bot.find_best_move(board)
+            nodes_count = self.medium_bot.nodes_explored
 
-        # --- MODE 3: AlphaBeta + Combined (H1 & H2) ---
+        # 3. HARD
         elif mode == "AlphaBeta_Combined":
-            self.alphabeta_combined.nodes_explored = 0
-            move = self.alphabeta_combined.find_best_move(board)
-            nodes_count = self.alphabeta_combined.nodes_explored
-
-        # --- OTHER EXISTING MODES (Keep these for your GUI buttons) ---
+            self.hard_bot.nodes_explored = 0
+            self.hard_bot.pruning_count = 0
+            move = self.hard_bot.find_best_move(board)
+            nodes_count = self.hard_bot.nodes_explored
+        
+        # --- Optional Modes ---
         elif mode == "Heuristic_1_Only":
             move, nodes_count = self.get_greedy_move(board, evaluate)
         elif mode == "Heuristic_2_Only":
@@ -110,14 +128,18 @@ class AIController:
             self.minimax_h2.nodes_explored = 0
             move = self.minimax_h2.find_best_move(board)
             nodes_count = self.minimax_h2.nodes_explored
-
+        elif mode == "AlphaBeta_H1":
+            self.alphabeta_h1.nodes_explored = 0
+            move = self.alphabeta_h1.find_best_move(board)
+            nodes_count = self.alphabeta_h1.nodes_explored
+            
         else:
             print(f"Error: Invalid Mode ({mode})")
-            return None
+            return None, 0, 0 
 
         # --- Performance Reporting ---
         end_time = time.time()
-        duration = end_time - start_time
-        print(f"Stats -> Time: {duration:.4f}s | Nodes Explored: {nodes_count} | Move: {move}")
+        elapsed_time = end_time - start_time
+        print(f"Stats -> Time: {elapsed_time:.4f}s | Nodes: {nodes_count} | Move: {move}")
         
-        return move
+        return move, elapsed_time, nodes_count
