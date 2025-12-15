@@ -1,4 +1,5 @@
 # Alpha-Beta Pruning logic
+
 import math
 class AlphaBeta:
     def __init__(self, depth, heuristic_func=None):

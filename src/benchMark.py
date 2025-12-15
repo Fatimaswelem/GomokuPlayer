@@ -1,3 +1,6 @@
+''' Conducts automated performance testing of the AI algorithms (Minimax vs. AlphaBeta)
+    across standardized game scenarios. It generates the (Time, Nodes Explored, Pruning Counts) 
+    required for the "Experiments & Results" section of the project documentation.'''
 import time
 from Board import Board
 from Minimax import Minimax

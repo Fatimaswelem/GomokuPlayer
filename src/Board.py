@@ -1,6 +1,5 @@
-# Board.py
+# Game board and move logic - AI CONTROLLER COMPATIBLE
 
-# Game board and move logic - AI CONTROLLER COMPATIBLE VERSION
 class Board:
     def __init__(self, size=15):
         self.size = size

@@ -1,4 +1,4 @@
-# GomokuGUI.py
+# GomokuGUI
 
 import pygame
 import sys

@@ -1,4 +1,4 @@
-# HeuristicEvaluator.py
+# HeuristicEvaluators
 
 AI = "X"
 OP = "O"

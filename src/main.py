@@ -1,4 +1,5 @@
 # Application entry point
+
 from GomokuGUI import GomokuGUI
 
 if __name__ == "__main__":
